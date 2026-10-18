@@ -3,41 +3,117 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的学习主页</title>
+  <title>🍽️ 餐厅点单 - 前后端联调</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, "Segoe UI", sans-serif;
-      display: flex; justify-content: center; align-items: center;
       min-height: 100vh; background: #0f0f23; color: #e0e0e0;
+      padding: 3rem 1rem;
     }
-    .card {
-      text-align: center; padding: 3rem;
+    .wrap { max-width: 480px; margin: 0 auto; }
+    h1 { text-align: center; color: #7ee787; margin-bottom: 0.5rem; }
+    .sub { text-align: center; opacity: 0.5; margin-bottom: 2rem; font-size: 0.9rem; }
+
+    .refresh-btn {
+      display: block; width: 100%; padding: 0.9rem;
+      background: #7ee787; color: #0f0f23; font-size: 1rem; font-weight: bold;
+      border: none; border-radius: 10px; cursor: pointer; margin-bottom: 2rem;
+    }
+    .refresh-btn:hover { opacity: 0.9; }
+
+    .dish {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 1.2rem; margin-bottom: 0.8rem;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px; backdrop-filter: blur(20px);
+      border-radius: 12px;
     }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #7ee787; }
-    p { opacity: 0.6; margin-bottom: 1.5rem; }
-    .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
-    .badge {
-      padding: 0.3rem 0.8rem; border-radius: 999px;
-      font-size: 0.75rem; background: rgba(126,231,135,0.1);
-      border: 1px solid rgba(126,231,135,0.3); color: #7ee787;
+    .dish-name { font-weight: bold; }
+    .dish-info { text-align: right; }
+    .price { color: #7ee787; font-weight: bold; }
+    .stock { font-size: 0.8rem; opacity: 0.6; }
+    .order-btn {
+      margin-top: 0.3rem; padding: 0.3rem 0.9rem;
+      background: #7ee787; color: #0f0f23; font-size: 0.8rem; font-weight: bold;
+      border: none; border-radius: 6px; cursor: pointer;
     }
-    .footer { margin-top: 2rem; font-size: 0.75rem; opacity: 0.3; }
+    .order-btn:hover { opacity: 0.85; }
+    .order-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+    .soldout { opacity: 0.45; }
+    .soldout .dish-name { text-decoration: line-through; }
+    .badge-soldout {
+      display: inline-block; background: #ff5f5f; color: #fff;
+      font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 999px;
+    }
+    .tip { margin-top: 2rem; text-align: center; font-size: 0.8rem; opacity: 0.4; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>👋 Hello World</h1>
-    <p>这是我从零部署到 GitHub Pages 的第一个页面</p>
-    <div class="badges">
-      <span class="badge">Git</span>
-      <span class="badge">GitHub Pages</span>
-      <span class="badge">从零开始</span>
-    </div>
-    <div class="footer">2026-10-17 · Learning</div>
+  <div class="wrap">
+    <h1>🍽️ 餐厅菜单</h1>
+    <p class="sub">数据来自后端 API（localhost:3000）· 下单会真的改库存</p>
+
+    <button class="refresh-btn" onclick="loadMenu()">📋 加载/刷新菜单</button>
+
+    <div id="menu"></div>
+
+    <p class="tip">前端(index.html) ← fetch → 后端(server.js)</p>
   </div>
+
+  <script>
+    // 关键：动态获取后端地址
+    // 电脑访问时 = localhost，手机访问时 = 电脑的局域网IP
+    // location.hostname 会自动变成"当前页面是从哪个地址打开的"
+    const API = 'http://' + location.hostname + ':3000';
+
+    // 加载菜单
+    async function loadMenu() {
+      const res = await fetch(API + '/api/menu');
+      const menu = await res.json();
+
+      const container = document.getElementById('menu');
+      container.innerHTML = '';
+
+      menu.forEach(dish => {
+        const div = document.createElement('div');
+        div.className = 'dish' + (dish.stock === 0 ? ' soldout' : '');
+
+        const stockText = dish.stock === 0
+          ? '<span class="badge-soldout">售罄</span>'
+          : '库存 ' + dish.stock + ' 份';
+
+        const orderBtn = dish.stock === 0
+          ? '<button class="order-btn" disabled>已售罄</button>'
+          : `<button class="order-btn" onclick="order('${dish.name}')">下单</button>`;
+
+        div.innerHTML = `
+          <span class="dish-name">${dish.name}</span>
+          <span class="dish-info">
+            <span class="price">¥${dish.price}</span><br>
+            <span class="stock">${stockText}</span><br>
+            ${orderBtn}
+          </span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // 下单：调用后端接口，库存减1
+    async function order(name) {
+      const res = await fetch(API + '/api/order?name=' + encodeURIComponent(name));
+      const result = await res.json();
+
+      alert(result.message);   // 弹窗显示下单结果
+      loadMenu();              // 重新加载菜单，看到最新库存
+    }
+
+    // 页面打开时自动加载一次菜单
+    loadMenu();
+
+    // 轮询：每隔 3 秒自动刷新菜单（美团式自动同步）
+    setInterval(loadMenu, 3000);
+  </script>
 </body>
 </html>
